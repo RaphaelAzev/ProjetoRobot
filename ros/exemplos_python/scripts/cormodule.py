@@ -14,7 +14,7 @@ from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 import smach
 import smach_ros
-
+distance = None
 
 def identifica_cor(frame):
 	'''
@@ -28,7 +28,7 @@ def identifica_cor(frame):
 	frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
 	cor_menor = np.array([-6, 100, 100])
-	cor_maior = np.array([14, 255, 255])
+	cor_maior = np.array([12, 255, 255])
 	segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
 
 	cor_menor = np.array([172, 50, 50])
@@ -53,7 +53,9 @@ def identifica_cor(frame):
 	    if area > maior_contorno_area:
 	        maior_contorno = cnt
 	        maior_contorno_area = area
-	        distance = (18211/(maior_contorno_area**0.5))-40
+	        if (maior_contorno_area > 0):
+	        	distance = (18211/(maior_contorno_area**0.5))-40
+	        else: distance = 0
 #(((2009**2)*474.5)/maior_contorno_area)**(1/2)
 
 	# Encontramos o centro do contorno fazendo a média de todos seus pontos.
@@ -82,4 +84,4 @@ def identifica_cor(frame):
 
 	centro = (frame.shape[0]//2, frame.shape[1]//2)
 
-	return media, centro, maior_contorno_area
+	return media, centro, maior_contorno_area, distance

@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     try:
         while not rospy.is_shutdown():
-            vel = Twist(Vector3(v,0,0), Vector3(0,0,w))
+            vel = Twist(Vector3(v,0,0), Vector3(0,0,0))
             pub.publish(vel)
             rospy.sleep(2.0)
     except rospy.ROSInterruptException:
