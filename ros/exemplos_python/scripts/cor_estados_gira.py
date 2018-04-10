@@ -104,10 +104,12 @@ class Girando(smach.State):
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -ang_speed))
 			velocidade_saida.publish(vel)
+			rospy.sleep(0.1)
 			return 'girando'
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, ang_speed))
 			velocidade_saida.publish(vel)
+			rospy.sleep(0.1)
 			return 'girando'
 
 		if area>7000:
@@ -136,7 +138,7 @@ class Centralizado(smach.State):
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x) or area<6000:
 			return 'alinhando'
 		else:
-			if (v90gra1==True):
+			if (v90gra1 == True):
 				return 'parado'
 			elif area>=5000:
 				vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0))
@@ -157,8 +159,14 @@ class Parado(smach.State):
 		if media is None:
 			return 'parado'
 		if (v90gra1 == True):
-			vel= Twist(Vector3(0,0,0),Vector3(0,0,0))
+			vel= Twist(Vector3(3,0,0),Vector3(0,0,0))
 			velocidade_saida.publish(vel)
+			rospy.sleep(0.1)
+			#if (v90gra1 == False):
+			#	vel= Twist(Vector3(0,0,0),Vector3(0,0,5))
+			#	velocidade_saida.publish(vel)
+			#	return 'alinhando'
+
 			return 'parado'		
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x) or area<6000:
 			return 'alinhando'
@@ -177,7 +185,7 @@ def main():
 	# Para usar a webcam 
 	#recebedor = rospy.Subscriber("/cv_camera/image_raw/compressed", CompressedImage, roda_todo_frame, queue_size=1, buff_size = 2**24)
 	
-	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)
+	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou, queue_size=3)
 
 	recebedor = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, roda_todo_frame, queue_size=5, buff_size = 2**24)
 	
