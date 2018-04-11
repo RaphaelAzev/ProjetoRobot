@@ -23,6 +23,8 @@ import cormodule
 
 bridge = CvBridge()
 
+
+
 cv_image = None
 
 # Variáveis para permitir que o roda_todo_frame troque dados com a máquina de estados
@@ -40,7 +42,7 @@ area_ideal = 75000 # área da distancia ideal do contorno - note que varia com a
 tolerancia_area = 18000
 
 # Atraso máximo permitido entre a imagem sair do Turbletbot3 e chegar no laptop do aluno
-atraso = 1.5
+atraso = 1
 check_delay = True# Só usar se os relógios ROS da Raspberry e do Linux desktop estiverem sincronizados
 
 def roda_todo_frame(imagem):
@@ -50,6 +52,7 @@ def roda_todo_frame(imagem):
 	global centro
 	global area
 	global distancia
+	global now
 
 	now = rospy.get_rostime()
 	imgtime = imagem.header.stamp
@@ -68,32 +71,43 @@ def roda_todo_frame(imagem):
 		print('ex', e)
 	
 def scaneou(dado):
-	global v90gra1	
+	global v90gra1
+	#global v90graE
+	#global menosparedeD	
 	#print("Faixa valida: ", dado.range_min , " - ", dado.range_max )
 	#print("Leituras:")
 	#print(np.array(dado.ranges).round(decimals=2))
 	#dists=(np.array(dado.ranges).round(decimals=2))
-	dists = np.split(np.array(dado.ranges).round(decimals=2), 8)
+	dists = np.split(np.array(dado.ranges).round(decimals=2), 8)v
 	#print(dists[0])
 	#print(dists[-1])
 	v90gra = np.concatenate([dists[0],dists[-1]])
+	#v45graD = dists[0]
+	#v45graE = dists[-1]
+
+	#if np.mean(v45graD) > np.mean(v45graE):
+		#menosparedeD = True
+	#else:
+	#	menosparedeD = False
+
 	#prnint("Intensities")
 	#print(np.array(dado.intensities).round(decimals=2))
 	#return np.array(dado.ranges).round(decimals=2)
 	#listaL.append(dists[315:359])
 	#listaL.append(dists[0:45])
 	for t in v90gra:
-		if t < 0.4 and t != 0:
+		if t < 0.3 and t != 0:
 			v90gra1 = True
 		else: 
 			v90gra1 = False
+
 
 ## Classes - estados
 
 
 class Girando(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['alinhou', 'girando'])
+        smach.State.__init__(self, outcomes=['alinhou', 'girando', 'parado'])
 
     def execute(self, userdata):
 		global velocidade_saida
@@ -117,6 +131,9 @@ class Girando(smach.State):
 			velocidade_saida.publish(vel)
 			return 'alinhou'
 
+		if (v90gra1 == True):
+			return 'parado'
+
 		else:
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
 			velocidade_saida.publish(vel)
@@ -129,16 +146,24 @@ class Centralizado(smach.State):
 
     def execute(self, userdata):
 		global velocidade_saida
+		global start
+
 
 		if media is None:
 			return 'alinhou'
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x) or area<6000:
+			#vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0.5))
+			#velocidade_saida.publish(vel)
+			#return 'alinhado'
 			return 'alinhando'
-
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x) or area<6000:
+			#vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, -0.5))
+			#velocidade_saida.publish(vel)
+			#return 'alinhado'
 			return 'alinhando'
 		else:
 			if (v90gra1 == True):
+				start=rospy.get_rostime()
 				return 'parado'
 			elif area>=5000:
 				vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0))
@@ -158,22 +183,62 @@ class Parado(smach.State):
 
 		if media is None:
 			return 'parado'
-		if (v90gra1 == True):
-			vel= Twist(Vector3(3,0,0),Vector3(0,0,0))
+		'''if (v90gra1 == True):
+			vel= Twist(Vector3(4,0,0),Vector3(0,0,0))
 			velocidade_saida.publish(vel)
-			rospy.sleep(0.1)
+			#rospy.sleep(2)
 			#if (v90gra1 == False):
-			#	vel= Twist(Vector3(0,0,0),Vector3(0,0,5))
-			#	velocidade_saida.publish(vel)
+			vel= Twist(Vector3(0,0,0),Vector3(0,0,6))
+			velocidade_saida.publish(vel)
+			#rospy.sleep(2)
 			#	return 'alinhando'
+			vel= Twist(Vector3(-2,0,0),Vector3(0,0,0))
+			velocidade_saida.publish(vel)
+			#rospy.sleep()
+xs
+			#rospy.sleep(10)
 
-			return 'parado'		
+			return 'parado'''
+		if (v90gra1 == True):
+			start=rospy.get_rostime()
+			repor = rospy.Duration(0.1)
+			girepor = rospy.Duration(0.1)
+			andepor = rospy.Duration(0.4)
+			tempopassado = now-start
+			while tempopassado < repor:
+				vel= Twist(Vector3(4,0,0),Vector3(0,0,0))
+				velocidade_saida.publish(vel)
+				tempopassado = now-start
+			start=rospy.get_rostime()
+			tempopassado = now-start
+			while tempopassado < girepor:
+				vel= Twist(Vector3(0,0,0),Vector3(0,0,4))
+				velocidade_saida.publish(vel)
+				tempopassado = now-start
+			start=rospy.get_rostime()
+			tempopassado = now-start
+			while tempopassado<andepor:	
+				vel= Twist(Vector3(-4,0,0),Vector3(0,0,0))
+				velocidade_saida.publish(vel)
+				tempopassado = now-start
+			start=rospy.get_rostime()
+			tempopassado = now-start
+			return 'parado'
+
+			#return 'parado'	
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x) or area<6000:
 			return 'alinhando'
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x) or area<6000:
 			return'alinhando'
 		elif (v90gra1 == False) and area>5000:
 			return 'andando'
+		elif (v90gra1 == False) and area<5000:
+			vel= Twist(Vector3(0,0,0),Vector3(0,0,5))
+			velocidade_saida.publish(vel)
+			start=rospy.get_rostime()
+			return 'parado'
+
+
 
 
 # main
@@ -185,7 +250,7 @@ def main():
 	# Para usar a webcam 
 	#recebedor = rospy.Subscriber("/cv_camera/image_raw/compressed", CompressedImage, roda_todo_frame, queue_size=1, buff_size = 2**24)
 	
-	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou, queue_size=3)
+	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)#, queue_size=1)
 
 	recebedor = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, roda_todo_frame, queue_size=5, buff_size = 2**24)
 	
@@ -204,7 +269,7 @@ def main():
 	    #                       transitions={'ainda_longe':'LONGE'})
 	    smach.StateMachine.add('GIRANDO', Girando(),
 	                            transitions={'girando': 'GIRANDO',
-	                            'alinhou':'CENTRO'})
+	                            'alinhou':'CENTRO', 'parado':'PARADO'})
 	    smach.StateMachine.add('CENTRO', Centralizado(),
 	                            transitions={'alinhando': 'GIRANDO',
 	                            'alinhado':'CENTRO','parado':'PARADO'})

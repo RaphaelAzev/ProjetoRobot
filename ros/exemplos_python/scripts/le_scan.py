@@ -34,7 +34,7 @@ def scaneou(dado):
 		else: 
 			velocidade = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0))
 			velocidade_saida.publish(velocidade)'''
-
+	print(rospy.Time())
 	return v90gra
 
 
