@@ -42,7 +42,7 @@ area_ideal = 75000 # área da distancia ideal do contorno - note que varia com a
 tolerancia_area = 18000
 
 # Atraso máximo permitido entre a imagem sair do Turbletbot3 e chegar no laptop do aluno
-atraso = 1
+atraso = 0.4E9
 check_delay = True# Só usar se os relógios ROS da Raspberry e do Linux desktop estiverem sincronizados
 
 def roda_todo_frame(imagem):
@@ -57,7 +57,7 @@ def roda_todo_frame(imagem):
 	now = rospy.get_rostime()
 	imgtime = imagem.header.stamp
 	lag = now-imgtime
-	delay = lag.secs
+	delay = lag.nsecs
 	if delay > atraso and check_delay==True:
 		return 
 	try:
@@ -66,10 +66,43 @@ def roda_todo_frame(imagem):
 		media, centro, area, distancia = cormodule.identifica_cor(cv_image)
 		#laser = le_scan.scaneou(dado)
 		depois = time.clock()
+		HoughLinesCode(cv_image)
 		cv2.imshow("Camera", cv_image)
+
 	except CvBridgeError as e:
 		print('ex', e)
-	
+
+def HoughLinesCode(frame):
+    dst =cv2.Canny(frame,50,200)
+    if True: # HoughLinesP
+        lines = cv2.HoughLinesP(dst, 10, math.pi/180.0, 100, np.array([]), 5, 5)
+        #print("Used Probabilistic Rough Transform")
+        #print("The probabilistic hough transform returns the end points of the detected lines")
+        a,b,c = lines.shape
+        #print("Valor de A",a, "valor de lines.shape", lines.shape)
+        for i in range(a):
+            # Faz uma linha ligando o ponto inicial ao ponto final, com a cor vermelha (BGR)
+            cv2.line(dst, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2], lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
+
+    else:    # HoughLines
+        # Esperemos nao cair neste caso
+        lines = cv2.HoughLines(dst, 1, math.pi/180.0, 50, np.array([]), 0, 0)
+        a,b,c = lines.shape
+        for i in range(a):
+            rho = lines[i][0][0]
+            theta = lines[i][0][1]
+            a = math.cos(theta)
+            b = math.sin(theta)
+            x0, y0 = a*rho, b*rho
+            pt1 = ( int(x0+1000*(-b)), int(y0+1000*(a)) )
+            pt2 = ( int(x0-1000*(-b)), int(y0-1000*(a)) )
+            cv2.line(dst, pt1, pt2, (0, 0, 255), 3, cv2.LINE_AA)
+        #print("Used old vanilla Hough transform")
+        #print("Returned points will be radius and angles")
+
+
+
+
 def scaneou(dado):
 	global v90gra1
 	#global v90graE
@@ -78,7 +111,7 @@ def scaneou(dado):
 	#print("Leituras:")
 	#print(np.array(dado.ranges).round(decimals=2))
 	#dists=(np.array(dado.ranges).round(decimals=2))
-	dists = np.split(np.array(dado.ranges).round(decimals=2), 8)v
+	dists = np.split(np.array(dado.ranges).round(decimals=2), 8)
 	#print(dists[0])
 	#print(dists[-1])
 	v90gra = np.concatenate([dists[0],dists[-1]])
@@ -102,6 +135,66 @@ def scaneou(dado):
 			v90gra1 = False
 
 
+
+def Features(cam):
+    global CadernoDetectado
+    MIN_MATCH_COUNT=50
+
+    detector= cv2.xfeatures2d.SIFT_create()   #########
+
+    FLANN_INDEX_KDITREE=0
+    flannParam=dict(algorithm=FLANN_INDEX_KDITREE,tree=5)
+    flann=cv2.FlannBasedMatcher(flannParam,{})
+
+    trainImg=cv2.imread("Caderno.jpeg",0)
+    trainKP,trainDesc=detector.detectAndCompute(trainImg,None)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    while True:
+        ret, QueryImgBGR=cam.read()
+        QueryImg=cv2.cvtColor(QueryImgBGR,cv2.COLOR_BGR2GRAY)
+        queryKP,queryDesc=detector.detectAndCompute(QueryImg,None) ########
+        matches=flann.knnMatch(queryDesc,trainDesc,k=2)   ########
+
+        goodMatch=[]
+        for m,n in matches:
+            if(m.distance<0.75*n.distance):
+                goodMatch.append(m)
+        if(len(goodMatch)>MIN_MATCH_COUNT):
+            tp=[]
+            qp=[]
+            for m in goodMatch:
+                tp.append(trainKP[m.trainIdx].pt)
+                qp.append(queryKP[m.queryIdx].pt)
+            tp,qp=np.float32((tp,qp))
+            H,status=cv2.findHomography(tp,qp,cv2.RANSAC,3.0)
+            h,w=trainImg.shape
+            trainBorder=np.float32([[[0,0],[0,h-1],[w-1,h-1],[w-1,0]]])
+            queryBorder=cv2.perspectiveTransform(trainBorder,H)
+            cv2.polylines(QueryImgBGR,[np.int32(queryBorder)],True,(0,255,0),5)
+            CadernoDetectado = True
+
+        else:
+            CadernoDetectado = False
+            
+            
+            
+            
+        gray = cv2.medianBlur(cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2GRAY),5)
+        
+        if(raposa==1):
+            cv2.putText(QueryImgBGR, "ACHOU!!!!!", (230, 50), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            print("ACHOU!!")
+        cv2.imshow('result',QueryImgBGR)
+        if cv2.waitKey(10)==ord('q'):
+            break
+        
+
+
+    cam.release()
+    cv2.destroyAllWindows()
+
+
 ## Classes - estados
 
 
@@ -111,6 +204,7 @@ class Girando(smach.State):
 
     def execute(self, userdata):
 		global velocidade_saida
+		global start
 
 		if media is None or len(media)==0:
 			return 'girando'
@@ -118,12 +212,12 @@ class Girando(smach.State):
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -ang_speed))
 			velocidade_saida.publish(vel)
-			rospy.sleep(0.1)
+			#rospy.sleep(0.1)
 			return 'girando'
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, ang_speed))
 			velocidade_saida.publish(vel)
-			rospy.sleep(0.1)
+			#rospy.sleep(0.1)
 			return 'girando'
 
 		if area>7000:
@@ -166,7 +260,7 @@ class Centralizado(smach.State):
 				start=rospy.get_rostime()
 				return 'parado'
 			elif area>=5000:
-				vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0))
+				vel = Twist(Vector3(0.5, 0, 0), Vector3(0, 0, 0))
 				velocidade_saida.publish(vel)
 				return 'alinhado'
 			else:
@@ -180,6 +274,7 @@ class Parado(smach.State):
 
     def execute(self, userdata):
 		global velocidade_saida
+		global start
 
 		if media is None:
 			return 'parado'
@@ -200,30 +295,30 @@ xs
 
 			return 'parado'''
 		if (v90gra1 == True):
-			start=rospy.get_rostime()
-			repor = rospy.Duration(0.1)
-			girepor = rospy.Duration(0.1)
-			andepor = rospy.Duration(0.4)
+			start = rospy.get_rostime()
+			repor = rospy.Duration(0.15)
+			girepor = rospy.Duration(0.05)
+			andepor = rospy.Duration(0.2)
 			tempopassado = now-start
 			while tempopassado < repor:
-				vel= Twist(Vector3(4,0,0),Vector3(0,0,0))
+				vel = Twist(Vector3(-3,0,0),Vector3(0,0,0))
 				velocidade_saida.publish(vel)
 				tempopassado = now-start
 			start=rospy.get_rostime()
 			tempopassado = now-start
 			while tempopassado < girepor:
-				vel= Twist(Vector3(0,0,0),Vector3(0,0,4))
+				vel = Twist(Vector3(0,0,0),Vector3(0,0,2))
 				velocidade_saida.publish(vel)
 				tempopassado = now-start
-			start=rospy.get_rostime()
+			start = rospy.get_rostime()
 			tempopassado = now-start
 			while tempopassado<andepor:	
-				vel= Twist(Vector3(-4,0,0),Vector3(0,0,0))
+				vel = Twist(Vector3(3,0,0),Vector3(0,0,0))
 				velocidade_saida.publish(vel)
 				tempopassado = now-start
 			start=rospy.get_rostime()
 			tempopassado = now-start
-			return 'parado'
+			return 'alinhando'
 
 			#return 'parado'	
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x) or area<6000:
@@ -252,7 +347,7 @@ def main():
 	
 	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)#, queue_size=1)
 
-	recebedor = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, roda_todo_frame, queue_size=5, buff_size = 2**24)
+	recebedor = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, roda_todo_frame, queue_size=1, buff_size = 2**24)
 	
 	velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
 
