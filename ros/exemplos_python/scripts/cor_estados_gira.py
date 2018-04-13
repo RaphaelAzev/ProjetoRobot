@@ -72,37 +72,6 @@ def roda_todo_frame(imagem):
 	except CvBridgeError as e:
 		print('ex', e)
 
-def HoughLinesCode(frame):
-    dst =cv2.Canny(frame,50,200)
-    if True: # HoughLinesP
-        lines = cv2.HoughLinesP(dst, 10, math.pi/180.0, 100, np.array([]), 5, 5)
-        #print("Used Probabilistic Rough Transform")
-        #print("The probabilistic hough transform returns the end points of the detected lines")
-        a,b,c = lines.shape
-        #print("Valor de A",a, "valor de lines.shape", lines.shape)
-        for i in range(a):
-            # Faz uma linha ligando o ponto inicial ao ponto final, com a cor vermelha (BGR)
-            cv2.line(dst, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2], lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
-
-    else:    # HoughLines
-        # Esperemos nao cair neste caso
-        lines = cv2.HoughLines(dst, 1, math.pi/180.0, 50, np.array([]), 0, 0)
-        a,b,c = lines.shape
-        for i in range(a):
-            rho = lines[i][0][0]
-            theta = lines[i][0][1]
-            a = math.cos(theta)
-            b = math.sin(theta)
-            x0, y0 = a*rho, b*rho
-            pt1 = ( int(x0+1000*(-b)), int(y0+1000*(a)) )
-            pt2 = ( int(x0-1000*(-b)), int(y0-1000*(a)) )
-            cv2.line(dst, pt1, pt2, (0, 0, 255), 3, cv2.LINE_AA)
-        #print("Used old vanilla Hough transform")
-        #print("Returned points will be radius and angles")
-
-
-
-
 def scaneou(dado):
 	global v90gra1
 	#global v90graE
@@ -200,7 +169,7 @@ def Features(cam):
 
 class Girando(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['alinhou', 'girando', 'parado'])
+        smach.State.__init__(self, outcomes=['alinhou', 'girando', 'parado','features'])
 
     def execute(self, userdata):
 		global velocidade_saida
@@ -208,6 +177,8 @@ class Girando(smach.State):
 
 		if media is None or len(media)==0:
 			return 'girando'
+		if CadernoDetectado ==True:
+			return 'features'
 
 		if  math.fabs(media[0]) > math.fabs(centro[0] + tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -ang_speed))
@@ -332,7 +303,22 @@ xs
 			velocidade_saida.publish(vel)
 			start=rospy.get_rostime()
 			return 'parado'
+class Features(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['girando'])
 
+    def execute(self, userdata):
+		global velocidade_saida
+		global start
+		start = rospy.get_rostime()
+		girepor = rospy.Duration(0.5)
+		tempopassado = now-start
+		while tempopassado < repor:
+			vel = Twist(Vector3(0,0,0),Vector3(0,0,10))
+			velocidade_saida.publish(vel)
+			tempopassado = now-start
+		start=rospy.get_rostime()
+		return "girando"
 
 
 
@@ -364,13 +350,15 @@ def main():
 	    #                       transitions={'ainda_longe':'LONGE'})
 	    smach.StateMachine.add('GIRANDO', Girando(),
 	                            transitions={'girando': 'GIRANDO',
-	                            'alinhou':'CENTRO', 'parado':'PARADO'})
+	                            'alinhou':'CENTRO', 'parado':'PARADO','features':'FEATURES'})
 	    smach.StateMachine.add('CENTRO', Centralizado(),
 	                            transitions={'alinhando': 'GIRANDO',
 	                            'alinhado':'CENTRO','parado':'PARADO'})
 	    smach.StateMachine.add('PARADO', Parado(),
 	                            transitions={'andando': 'CENTRO',
 	                            'parado':'PARADO','alinhando':'GIRANDO'})
+	    smach.StateMachine.add('FEATURES', Features(),
+	                            transitions={'girando': 'CENTRO'})	    
 	# Execute SMACH plan
 	outcome = sm.execute()
 	#rospy.spin()
