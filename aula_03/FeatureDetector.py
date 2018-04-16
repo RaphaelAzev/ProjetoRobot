@@ -1,7 +1,7 @@
 
 import cv2
 import numpy as np
-    
+
 def Features():
     global CadernoDetectado
     MIN_MATCH_COUNT=50
@@ -63,3 +63,4 @@ def Features():
 
     cam.release()
     cv2.destroyAllWindows()
+Features()

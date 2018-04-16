@@ -32,8 +32,9 @@ media = []
 centro = []
 area = 0.0
 distancia = 0.0
-
-
+featuresIMG = cv2.imread("Caderno.jpeg",0)
+detector= cv2.xfeatures2d.SIFT_create()
+trainKP,trainDesc=detector.detectAndCompute(featuresIMG,None)
 
 tolerancia_x = 40
 tolerancia_y = 20
@@ -66,7 +67,8 @@ def roda_todo_frame(imagem):
 		media, centro, area, distancia = cormodule.identifica_cor(cv_image)
 		#laser = le_scan.scaneou(dado)
 		depois = time.clock()
-		HoughLinesCode(cv_image)
+		Features(cv_image)
+		#HoughLinesCode(cv_image)
 		cv2.imshow("Camera", cv_image)
 
 	except CvBridgeError as e:
@@ -136,63 +138,60 @@ def scaneou(dado):
 
 
 
-def Features(cam):
+def Features(QueryImgBGR):
     global CadernoDetectado
+    global featuresIMG
+    global trainKP
+    global trainDesc
+    global detector
     MIN_MATCH_COUNT=50
 
-    detector= cv2.xfeatures2d.SIFT_create()   #########
+    ########
 
     FLANN_INDEX_KDITREE=0
     flannParam=dict(algorithm=FLANN_INDEX_KDITREE,tree=5)
     flann=cv2.FlannBasedMatcher(flannParam,{})
 
-    trainImg=cv2.imread("Caderno.jpeg",0)
-    trainKP,trainDesc=detector.detectAndCompute(trainImg,None)
+    CadernoDetectado = 0
 
     font = cv2.FONT_HERSHEY_SIMPLEX
-    while True:
-        ret, QueryImgBGR=cam.read()
-        QueryImg=cv2.cvtColor(QueryImgBGR,cv2.COLOR_BGR2GRAY)
-        queryKP,queryDesc=detector.detectAndCompute(QueryImg,None) ########
-        matches=flann.knnMatch(queryDesc,trainDesc,k=2)   ########
 
-        goodMatch=[]
-        for m,n in matches:
-            if(m.distance<0.75*n.distance):
-                goodMatch.append(m)
-        if(len(goodMatch)>MIN_MATCH_COUNT):
-            tp=[]
-            qp=[]
-            for m in goodMatch:
-                tp.append(trainKP[m.trainIdx].pt)
-                qp.append(queryKP[m.queryIdx].pt)
-            tp,qp=np.float32((tp,qp))
-            H,status=cv2.findHomography(tp,qp,cv2.RANSAC,3.0)
-            h,w=trainImg.shape
-            trainBorder=np.float32([[[0,0],[0,h-1],[w-1,h-1],[w-1,0]]])
-            queryBorder=cv2.perspectiveTransform(trainBorder,H)
-            cv2.polylines(QueryImgBGR,[np.int32(queryBorder)],True,(0,255,0),5)
-            CadernoDetectado = True
+    print(QueryImgBGR)
+    
+    QueryImg=cv2.cvtColor(QueryImgBGR,cv2.COLOR_BGR2GRAY)
+    queryKP,queryDesc=detector.detectAndCompute(QueryImg,None) ########
+    matches=flann.knnMatch(queryDesc,trainDesc,k=2)   ########
 
-        else:
-            CadernoDetectado = False
-            
-            
-            
-            
-        gray = cv2.medianBlur(cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2GRAY),5)
+    goodMatch=[]
+    for m,n in matches:
+        if(m.distance<0.75*n.distance):
+            goodMatch.append(m)
+    if(len(goodMatch)>MIN_MATCH_COUNT):
+        tp=[]
+        qp=[]
+        for m in goodMatch:
+            tp.append(trainKP[m.trainIdx].pt)
+            qp.append(queryKP[m.queryIdx].pt)
+        tp,qp=np.float32((tp,qp))
+        H,status=cv2.findHomography(tp,qp,cv2.RANSAC,3.0)
+        h,w=featuresIMG.shape
+        trainBorder=np.float32([[[0,0],[0,h-1],[w-1,h-1],[w-1,0]]])
+        queryBorder=cv2.perspectiveTransform(trainBorder,H)
+        cv2.polylines(QueryImgBGR,[np.int32(queryBorder)],True,(0,255,0),5)
+        CadernoDetectado = True
+
+    else:
+        CadernoDetectado = False
         
-        if(raposa==1):
-            cv2.putText(QueryImgBGR, "ACHOU!!!!!", (230, 50), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
-            print("ACHOU!!")
-        cv2.imshow('result',QueryImgBGR)
-        if cv2.waitKey(10)==ord('q'):
-            break
+    #gray = cv2.medianBlur(cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2GRAY),5)
+    
+    if(CadernoDetectado==True):
+        print("ACHOU!!")
+    #if cv2.waitKey(10)==ord('q'):
+       # break
         
-
-
-    cam.release()
-    cv2.destroyAllWindows()
+    #cam.release()
+    #cv2.destroyAllWindows()
 
 
 ## Classes - estados
@@ -349,9 +348,11 @@ def main():
 
 	recebedor = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, roda_todo_frame, queue_size=1, buff_size = 2**24)
 	
+	caderno = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, Features, queue_size=1, buff_size = 2**24)
+
 	velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
 
-	# Create a SMACH state machine
+	# Create a SMACH state machineFeatures
 	sm = smach.StateMachine(outcomes=['terminei'])
 
 	# Open the container
