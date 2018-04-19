@@ -34,7 +34,7 @@ area = 0.0
 #distancia = 0.0
 
 #Variáveis dos features#
-'''featuresIMG = cv2.imread("Caderno.jpeg",0)
+featuresIMG = cv2.imread("Caderno.jpeg",0)
 detector = cv2.xfeatures2d.SIFT_create()
 #detector = cv2.FastFeatureDetector_create()
 #detector = cv2.xfeatures2d.SURF_create()
@@ -42,7 +42,7 @@ detector = cv2.xfeatures2d.SIFT_create()
 trainKP,trainDesc=detector.detectAndCompute(featuresIMG,None)
 FLANN_INDEX_KDITREE=3
 flannParam=dict(algorithm=FLANN_INDEX_KDITREE,tree=3)
-flann=cv2.FlannBasedMatcher(flannParam,{})'''
+flann=cv2.FlannBasedMatcher(flannParam,{})
 #End#
 
 tolerancia_x = 40
@@ -76,7 +76,7 @@ def roda_todo_frame(imagem):
 		media, centro, area = cormodule.identifica_cor(cv_image) #distancia removida#
 		#laser = le_scan.scaneou(dado)
 		depois = time.clock()
-		#Features(cv_image)
+		Features(cv_image)
 		#HoughLinesCode(cv_image)
 		cv2.imshow("Camera", cv_image)
 
