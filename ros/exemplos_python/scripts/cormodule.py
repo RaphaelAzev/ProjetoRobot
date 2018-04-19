@@ -53,9 +53,9 @@ def identifica_cor(frame):
 	    if area > maior_contorno_area:
 	        maior_contorno = cnt
 	        maior_contorno_area = area
-	        if (maior_contorno_area > 0):
+	        '''if (maior_contorno_area > 0):
 	        	distance = (18211/(maior_contorno_area**0.5))-40
-	        else: distance = 0
+	        else: distance = 0'''
 #(((2009**2)*474.5)/maior_contorno_area)**(1/2)
 
 	# Encontramos o centro do contorno fazendo a média de todos seus pontos.
@@ -74,7 +74,7 @@ def identifica_cor(frame):
 
 	cv2.putText(frame,"{:d} {:d}".format(*media),(20,100), 1, 4,(255,255,255),2,cv2.LINE_AA)
 	cv2.putText(frame,"{:0.1f}".format(maior_contorno_area),(20,50), 1, 4,(255,255,255),2,cv2.LINE_AA)
-	cv2.putText(frame,"{:0.1f}".format(distance),(20,150), 1, 4,(255,255,255),2,cv2.LINE_AA)
+	#cv2.putText(frame,"{:0.1f}".format(distance),(20,150), 1, 4,(255,255,255),2,cv2.LINE_AA)
 
 		
 
@@ -84,4 +84,4 @@ def identifica_cor(frame):
 
 	centro = (frame.shape[0]//2, frame.shape[1]//2)
 
-	return media, centro, maior_contorno_area, distance
+	return media, centro, maior_contorno_area#, distance
