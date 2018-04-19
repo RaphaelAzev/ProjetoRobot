@@ -34,13 +34,16 @@ area = 0.0
 #distancia = 0.0
 
 #Variáveis dos features#
-featuresIMG = cv2.imread("Caderno.jpeg",0)
-detector= cv2.xfeatures2d.SIFT_create()
+'''featuresIMG = cv2.imread("Caderno.jpeg",0)
+detector = cv2.xfeatures2d.SIFT_create()
+#detector = cv2.FastFeatureDetector_create()
+#detector = cv2.xfeatures2d.SURF_create()
+#detector = cv2.BFMatcher()
 trainKP,trainDesc=detector.detectAndCompute(featuresIMG,None)
-FLANN_INDEX_KDITREE=0
-flannParam=dict(algorithm=FLANN_INDEX_KDITREE,tree=5)
-flann=cv2.FlannBasedMatcher(flannParam,{})
-
+FLANN_INDEX_KDITREE=3
+flannParam=dict(algorithm=FLANN_INDEX_KDITREE,tree=3)
+flann=cv2.FlannBasedMatcher(flannParam,{})'''
+#End#
 
 tolerancia_x = 40
 tolerancia_y = 20
@@ -73,7 +76,7 @@ def roda_todo_frame(imagem):
 		media, centro, area = cormodule.identifica_cor(cv_image) #distancia removida#
 		#laser = le_scan.scaneou(dado)
 		depois = time.clock()
-		Features(cv_image)
+		#Features(cv_image)
 		#HoughLinesCode(cv_image)
 		cv2.imshow("Camera", cv_image)
 
@@ -137,7 +140,7 @@ def scaneou(dado):
 	#listaL.append(dists[315:359])
 	#listaL.append(dists[0:45])
 	for t in v90gra:
-		if t < 0.3 and t != 0:
+		if t < 0.4 and t != 0:
 			v90gra1 = True
 		else: 
 			v90gra1 = False
@@ -145,14 +148,14 @@ def scaneou(dado):
 
 
 def Features(QueryImgBGR):
-	global CadernoDetectado
-	global featuresIMG
-	global trainKP
-	global trainDesc
-	global detector
-	global FLANN_INDEX_KDITREE
-	global flannParam
-	global flann
+    global CadernoDetectado
+    global featuresIMG
+    global trainKP
+    global trainDesc
+    global detector
+    global FLANN_INDEX_KDITREE
+    global flannParam
+    global flann
 
 
     MIN_MATCH_COUNT=50
@@ -171,6 +174,7 @@ def Features(QueryImgBGR):
     
     QueryImg=cv2.cvtColor(QueryImgBGR,cv2.COLOR_BGR2GRAY)
     queryKP,queryDesc=detector.detectAndCompute(QueryImg,None) ########
+    #queryKP,queryDesc=detector.detectAndCompute(QueryImgBGR,None)
     matches=flann.knnMatch(queryDesc,trainDesc,k=2)   ########
 
     goodMatch=[]
@@ -225,19 +229,16 @@ class Girando(smach.State):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -ang_speed))
 			velocidade_saida.publish(vel)
 			#rospy.sleep(0.1)
-			rospy.sleep(0.1)
 			return 'girando'
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x):
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, ang_speed))
 			velocidade_saida.publish(vel)
 			#rospy.sleep(0.1)
-			rospy.sleep(0.1)
 			return 'girando'
 
 		if area>7000:
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
 			velocidade_saida.publish(vel)
-			rospy.sleep(0.1)
 			return 'alinhou'
 
 		if (v90gra1 == True):
@@ -246,7 +247,6 @@ class Girando(smach.State):
 		else:
 			vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
 			velocidade_saida.publish(vel)
-			rospy.sleep(0.1)
 			return 'alinhou'
 
 
@@ -273,17 +273,17 @@ class Centralizado(smach.State):
 			return 'alinhando'
 		else:
 			if (v90gra1 == True):
-				start=rospy.get_rostime()
+				#start=rospy.get_rostime()
 				return 'parado'
-			elif area>=5000:
+			elif area>=7000:
 				vel = Twist(Vector3(-0.5, 0, 0), Vector3(0, 0, 0))
 				velocidade_saida.publish(vel)
-				rospy.sleep(0.1)
+				#rospy.sleep(0.1)
 				return 'alinhado'
 			else:
 				vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
 				velocidade_saida.publish(vel)
-				rospy.sleep(0.1)
+				#rospy.sleep(0.1)
 				return 'alinhado'
 
 class Parado(smach.State):
@@ -343,13 +343,13 @@ xs
 			return 'alinhando'
 		if math.fabs(media[0]) < math.fabs(centro[0] - tolerancia_x) or area<6000:
 			return'alinhando'
-		elif (v90gra1 == False) and area>5000:
+		elif (v90gra1 == False) and area>7000:
 			return 'andando'
-		elif (v90gra1 == False) and area<5000:
+		elif (v90gra1 == False) and area<7000:
 			vel= Twist(Vector3(0,0,0),Vector3(0,0,5))
 			velocidade_saida.publish(vel)
 			rospy.sleep(0.1)
-			start=rospy.get_rostime()
+			#start=rospy.get_rostime()
 			return 'parado'
 
 class FeaturesReact(smach.State):
@@ -360,13 +360,12 @@ class FeaturesReact(smach.State):
 		global velocidade_saida
 		global start
 		start = rospy.get_rostime()
-		girepor = rospy.Duration(0.5)
+		girepor = rospy.Duration(2)
 		tempopassado = now-start
-		while tempopassado < repor:
+		while tempopassado < girepor:
 			vel = Twist(Vector3(0,0,0),Vector3(0,0,10))
 			velocidade_saida.publish(vel)
 			tempopassado = now-start
-		start=rospy.get_rostime()
 		return "girando"
 
 
